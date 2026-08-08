@@ -60,6 +60,8 @@ game.canPlayerTurn = true
 game.canDealerTurn = true
 game.gunSawed = false
 
+game.round = 1
+
 local function clearShells()
     shells = {}
 end
@@ -343,50 +345,60 @@ local function askPlayerTurn()
 end
 
 --- CLI ---
-
-while game.playerHP > 0 and game.dealerHP > 0 do
-    -- restart round
-    clearShells()
-    local c, sh = spawnShells()
-    shuffleShells()
-    game.print(string.format("Loaded shotgun with %s shells.", c))
-
-    game.print()
-    for i = 1, #sh do
-        if sh[i] then
-            term.blit("\143 ", "ef", "1f")
-        else
-            term.blit("\143 ", "3f", "1f")
-        end
+while true do
+    game.print("Round "..tostring(game.round))
+    if game.round > 1 then
+        giveItems()
     end
-    game.print("\n")
-
-    -- round here
-    while #shells > 0 and (game.playerHP > 0 and game.dealerHP > 0) do
-        game.print("Lives: P("..string.rep("X", game.playerHP)..") D("..string.rep("X", game.dealerHP)..")")
-        game.print("Your inventory: "..strInv(game.playerInv))
-        game.print("Dealer inventory: "..strInv(game.dealerInv))
-        if game.isPlayerTurn then
-            game.print("\n-- Your turn --\n")
-            while askPlayerTurn() do end
-        else
-            game.print("\n-- Dealer's turn --\n")
-            -- Dealer turn here. Ask them where they are.
-            switchTurn()
-        end
-    end
-    -- round ended
-    if game.playerHP > 0 and game.dealerHP > 0 then
+    while game.playerHP > 0 and game.dealerHP > 0 do
+        -- new loadout
         game.write("Reloading the shotgun")
         game.printSlow("...")
-        giveItems()
+
+        clearShells()
+        local c, sh = spawnShells()
+        shuffleShells()
+
+        game.print(string.format("Loaded shotgun with %s shells.", c))
+
+        game.print()
+        for i = 1, #sh do
+            if sh[i] then
+                term.blit("\143 ", "ef", "1f")
+            else
+                term.blit("\143 ", "3f", "1f")
+            end
+        end
+        game.print("\n")
+
+        -- round here
+        while #shells > 0 and (game.playerHP > 0 and game.dealerHP > 0) do
+            game.print("Lives: P("..string.rep("X", game.playerHP)..") D("..string.rep("X", game.dealerHP)..")")
+            game.print("Your inventory: "..strInv(game.playerInv))
+            game.print("Dealer inventory: "..strInv(game.dealerInv))
+            if game.isPlayerTurn then
+                game.print("\n-- Your turn --\n")
+                while askPlayerTurn() do end
+            else
+                game.print("\n-- Dealer's turn --\n")
+                -- Dealer turn here. Ask them where they are.
+                switchTurn()
+            end
+        end
+    end
+    if game.playerHP < 0 or game.round > 3 then
+        break
+    else
+        -- so playerhp > 0 and game.round <= 3, but dealerhp == 0
+        game.playerHP = 3
+        game.dealerHP = 3
+        game.round = game.round + 1
     end
 end
 
 game.print("\n\n  GAME  OVER")
 if game.dealerHP > 0 then
-    game.print(" DEALER WON.")
+    game.print(" DEALER WON.\n")
 else
-    game.print(" PLAYER WON.")
+    game.print(" PLAYER WON.\n")
 end
-game.print()
