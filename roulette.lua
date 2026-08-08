@@ -66,6 +66,13 @@ game.dealerKnownShell = nil
 
 game.round = 1
 
+function game.clearScreen()
+    term.clear()
+    term.setCursorPos(1, 1)
+    game.print("Round "..tostring(game.round))
+    game.print("Lives: P("..string.rep("X", game.playerHP)..") D("..string.rep("X", game.dealerHP)..")")
+end
+
 local function clearShells()
     shells = {}
 end
@@ -92,7 +99,7 @@ local function spawnShells()
 end
 
 local function shuffleShells()
-    for i = #shells, 2, -1 do
+    for i = 1, #shells do
         local j = math.random(i)
         shells[i], shells[j] = shells[j], shells[i]
     end
@@ -510,7 +517,7 @@ end
 
 --- CLI ---
 while true do
-    game.print("Round "..tostring(game.round))
+    game.clearScreen()
     if game.round > 1 then
         giveItems()
     end
@@ -540,7 +547,6 @@ while true do
 
         -- round here
         while #shells > 0 and (game.playerHP > 0 and game.dealerHP > 0) do
-            game.print("Lives: P("..string.rep("X", game.playerHP)..") D("..string.rep("X", game.dealerHP)..")")
             game.print("Your inventory: "..strInv(game.playerInv))
             game.print("Dealer inventory: "..strInv(game.dealerInv))
             if game.isPlayerTurn then
@@ -550,9 +556,10 @@ while true do
                 game.print("\n-- Dealer's turn --\n")
                 dealerTurn()
             end
+            game.clearScreen()
         end
     end
-    if game.playerHP < 0 or game.round > 3 then
+    if game.playerHP <= 0 or game.round > 3 then
         break
     else
         -- so playerhp > 0 and game.round <= 3, but dealerhp == 0
