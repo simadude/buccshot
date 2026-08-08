@@ -51,8 +51,10 @@ game.playerInv = {}
 ---@type game.item[]
 game.dealerInv = {}
 
-game.playerHP = 3
-game.dealerHP = 3
+game.playerHP = 2
+game.dealerHP = 2
+game.maxHP = {2, 4, 6}
+game.maxItemsGive = {0, 2, 4}
 
 game.isPlayerTurn = true
 
@@ -65,6 +67,7 @@ game.dealerKnowsShell = false
 game.dealerKnownShell = nil
 
 game.round = 1
+game.loadout = 1
 
 function game.clearScreen()
     term.clear()
@@ -82,6 +85,15 @@ end
 local function spawnShells()
     local s = math.random(2, 8)
     local alives = math.random(1, s/2+1)
+    if game.round == 1 then
+        if game.loadout == 1 then
+            s = 3
+            alives = 1
+        elseif game.loadout == 2 then
+            s = 5
+            alives = 3
+        end
+    end
     if alives == s then alives = alives - 1 end
     for i = 1, alives do
         shells[i] = true
@@ -134,7 +146,7 @@ local function shootSelf()
 end
 
 local function giveItems()
-    local itemCount = math.random(1, 5)
+    local itemCount = game.maxItemsGive[game.round] or math.random(2, 5)
     ---@type game.item[]
     local items = ({"saw", "handcuffs", "cigarettes", "phone", "magnifying glass", "adrenaline", "beer", "inverter"})
     for i = 1, math.min(itemCount, 8-#game.playerInv) do
@@ -161,9 +173,9 @@ end
 
 local function useCigarettes()
     if game.isPlayerTurn then
-        game.playerHP = math.min(3, game.playerHP + 1)
+        game.playerHP = math.min(game.maxHP[game.round] or 6, game.playerHP + 1)
     else
-        game.dealerHP = math.min(3, game.dealerHP + 1)
+        game.dealerHP = math.min(game.maxHP[game.round] or 6, game.dealerHP + 1)
     end
 end
 
@@ -264,27 +276,27 @@ local function dealerFigureOutShell()
     if game.dealerKnownShells[#shells] then
         return true
     end
-    
+
     local liveCount = 0
     local blankCount = 0
     for i = 1, #shells do
         if shells[i] then liveCount = liveCount + 1 else blankCount = blankCount + 1 end
     end
-    
+
     if liveCount == 0 or blankCount == 0 then
         return true
     end
-    
+
     for i = 1, #shells do
         if game.dealerKnownShells[i] then
             if shells[i] then liveCount = liveCount - 1 else blankCount = blankCount - 1 end
         end
     end
-    
+
     if liveCount == 0 or blankCount == 0 then
         return true
     end
-    
+
     return false
 end
 
@@ -297,14 +309,14 @@ end
 
 local function dealerTurn()
     game.printSlow("Dealer is thinking...")
-    
+
     if #shells == 0 then
         switchTurn()
         return
     end
-    
+
     game.dealerTarget = nil
-    
+
     if #shells == 1 then
         game.dealerKnowsShell = true
         game.dealerKnownShell = shells[#shells] and "live" or "blank"
@@ -314,14 +326,14 @@ local function dealerTurn()
             game.dealerKnownShell = shells[#shells] and "live" or "blank"
         end
     end
-    
+
     if game.dealerKnowsShell then
         game.dealerTarget = game.dealerKnownShell == "live" and "player" or "self"
     end
-    
+
     while true do
         local itemToUse = nil
-        
+
         for _, item in ipairs(game.dealerInv) do
             if item == "magnifying glass" and not game.dealerKnowsShell and #shells ~= 1 then
                 itemToUse = "magnifying glass"
@@ -352,12 +364,12 @@ local function dealerTurn()
                 break
             end
         end
-        
+
         if not itemToUse then break end
-        
+
         local resb, res1 = useItem(game.dealerInv, itemToUse)
         game.writeSlow("Dealer uses " .. itemToUse .. ".")
-        
+
         if itemToUse == "magnifying glass" then
             game.dealerKnowsShell = true
             game.dealerKnownShell = shells[#shells] and "live" or "blank"
@@ -375,7 +387,7 @@ local function dealerTurn()
             game.dealerTarget = "player"
         end
     end
-    
+
     if dealerHasItem("saw") and not game.gunSawed and game.dealerKnownShell ~= "blank" then
         local coin = math.random(0, 1)
         if coin == 0 then
@@ -387,12 +399,12 @@ local function dealerTurn()
             game.writeSlow("Dealer uses saw.")
         end
     end
-    
+
     if not game.dealerTarget then
         local coin = math.random(0, 1)
         game.dealerTarget = (coin == 0) and "self" or "player"
     end
-    
+
     local goAgain = false
     if game.dealerTarget == "self" then
         local res = shootSelf()
@@ -410,11 +422,11 @@ local function dealerTurn()
             game.printSlow("Dealer shot you. It was blank.")
         end
     end
-    
+
     game.dealerKnowsShell = false
     game.dealerKnownShell = nil
     game.dealerTarget = nil
-    
+
     if not goAgain then
         switchTurn()
     end
@@ -545,7 +557,6 @@ while true do
         end
         game.print("\n")
 
-        -- round here
         while #shells > 0 and (game.playerHP > 0 and game.dealerHP > 0) do
             game.print("Your inventory: "..strInv(game.playerInv))
             game.print("Dealer inventory: "..strInv(game.dealerInv))
@@ -558,14 +569,15 @@ while true do
             end
             game.clearScreen()
         end
+        game.loadout = game.loadout + 1
     end
     if game.playerHP <= 0 or game.round > 3 then
         break
     else
         -- so playerhp > 0 and game.round <= 3, but dealerhp == 0
-        game.playerHP = 3
-        game.dealerHP = 3
         game.round = game.round + 1
+        game.playerHP = game.maxHP[game.round]
+        game.dealerHP = game.maxHP[game.round]
     end
 end
 
