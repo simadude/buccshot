@@ -1,3 +1,37 @@
+--- Audio
+
+local d = require("cc.audio.dfpwm").make_decoder()
+local f = fs.open("ost.dfpwm", "rb").readAll()
+local arr = d(f)
+
+local s = peripheral.find("speaker")
+
+local buf = {}
+
+local function audioLoop()
+    while true do
+        if not s then
+            sleep(0.25)
+            s = peripheral.find("speaker")
+        else
+            for i = 1, #arr, 8000 do
+                for j = 1, 8000 do
+                    buf[#buf+1] = arr[i+j-1]
+                    buf[#buf+1] = arr[i+j-1]
+                    buf[#buf+1] = arr[i+j-1]
+                    buf[#buf+1] = arr[i+j-1]
+                end
+                while not s.playAudio(buf, 0.5) do
+                    os.pullEvent("speaker_audio_empty")
+                end
+                buf = {}
+            end
+        end
+    end
+end
+
+--- Game
+
 local game = {}
 
 function game.print(...)
@@ -545,65 +579,72 @@ local function askPlayerTurn()
 end
 
 --- CLI ---
-while true do
-    if game.round > 3 then
-        break
-    end
-    game.clearScreen()
-    if game.round > 1 then
-        giveItems()
-    end
-    while game.playerHP > 0 and game.dealerHP > 0 do
-        -- new loadout
-        game.write("Reloading the shotgun")
-        game.printSlow("...")
-
-        clearShells()
-        game.dealerKnownShells = {}
-        game.dealerKnowsShell = false
-        game.dealerKnownShell = nil
-        local c, sh = spawnShells()
-        shuffleShells()
-
-        game.print(string.format("Loaded shotgun with %s shells.", c))
-
-        game.print()
-        for i = 1, #sh do
-            if sh[i] then
-                term.blit("\143 ", "ef", "1f")
-            else
-                term.blit("\143 ", "3f", "1f")
-            end
+local function gameLoop()
+    
+    while true do
+        if game.round > 3 then
+            break
         end
-        game.print("\n")
-
-        while #shells > 0 and (game.playerHP > 0 and game.dealerHP > 0) do
-            game.print("Your inventory: "..strInv(game.playerInv))
-            game.print("Dealer inventory: "..strInv(game.dealerInv))
-            if game.isPlayerTurn then
-                game.print("\n-- Your turn --\n")
-                while askPlayerTurn() do end
-            else
-                game.print("\n-- Dealer's turn --\n")
-                dealerTurn()
-            end
-            game.clearScreen()
+        game.clearScreen()
+        if game.round > 1 then
+            giveItems()
         end
-        game.loadout = game.loadout + 1
+        while game.playerHP > 0 and game.dealerHP > 0 do
+            -- new loadout
+            game.write("Reloading the shotgun")
+            game.printSlow("...")
+
+            clearShells()
+            game.dealerKnownShells = {}
+            game.dealerKnowsShell = false
+            game.dealerKnownShell = nil
+            local c, sh = spawnShells()
+            shuffleShells()
+
+            game.print(string.format("Loaded shotgun with %s shells.", c))
+
+            game.print()
+            for i = 1, #sh do
+                if sh[i] then
+                    term.blit("\143 ", "ef", "1f")
+                else
+                    term.blit("\143 ", "3f", "1f")
+                end
+            end
+            game.print("\n")
+
+            while #shells > 0 and (game.playerHP > 0 and game.dealerHP > 0) do
+                game.print("Your inventory: "..strInv(game.playerInv))
+                game.print("Dealer inventory: "..strInv(game.dealerInv))
+                if game.isPlayerTurn then
+                    game.print("\n-- Your turn --\n")
+                    while askPlayerTurn() do end
+                else
+                    game.print("\n-- Dealer's turn --\n")
+                    dealerTurn()
+                end
+                game.clearScreen()
+            end
+            game.loadout = game.loadout + 1
+        end
+        if game.playerHP <= 0 then
+            break
+        elseif game.round <= 3 then
+            -- so playerhp > 0 and game.round <= 3, but dealerhp == 0
+            game.round = game.round + 1
+            game.playerHP = game.maxHP[game.round]
+            game.dealerHP = game.maxHP[game.round]
+        end
     end
-    if game.playerHP <= 0 then
-        break
-    elseif game.round <= 3 then
-        -- so playerhp > 0 and game.round <= 3, but dealerhp == 0
-        game.round = game.round + 1
-        game.playerHP = game.maxHP[game.round]
-        game.dealerHP = game.maxHP[game.round]
+
+    game.print("\n\n  GAME  OVER")
+    if game.dealerHP > 0 then
+        game.print(" DEALER WON.\n")
+    else
+        game.print(" PLAYER WON.\n")
     end
+
+    return
 end
 
-game.print("\n\n  GAME  OVER")
-if game.dealerHP > 0 then
-    game.print(" DEALER WON.\n")
-else
-    game.print(" PLAYER WON.\n")
-end
+parallel.waitForAny(gameLoop, audioLoop)
