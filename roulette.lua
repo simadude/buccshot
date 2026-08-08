@@ -188,11 +188,14 @@ local function useItem(inv, itemName)
         if name == itemName then
             check = true
             table.remove(inv, i)
+            break
         end
     end
     if not check then
         return false, "item not found"
     end
+
+    ---@type table<game.item, function>
     local t = {
         ["beer"] = useBeer,
         ["saw"] = useSaw,
@@ -200,6 +203,8 @@ local function useItem(inv, itemName)
         ["cigarettes"] = useCigarettes,
         ["phone"] = usePhone,
         ["magnifying glass"] = useMagnifyingGlass,
+        ["adrenaline"] = useAdrenaline,
+        ["inverter"] = useInverter,
     }
     local f = t[itemName]
     if not f then
@@ -353,9 +358,10 @@ while game.playerHP > 0 and game.dealerHP > 0 do
                                                 if item == "adrenaline" then
                                                     game.print("Can't pick adrenaline twice. Try Again.")
                                                     noErr = false
+                                                else
+                                                    local resb, res1, res2 = useItem(game.dealerInv, item)
+                                                    printUsePlayerItem(item, resb, res1, res2)
                                                 end
-                                                local resb, res1, res2 = useItem(game.dealerInv, item)
-                                                printUsePlayerItem(item, resb, res1, res2)
                                             else
                                                 game.print("Invalid. Try Again.")
                                                 noErr = false
@@ -380,6 +386,7 @@ while game.playerHP > 0 and game.dealerHP > 0 do
                 end
             end
         else
+            game.print("\n-- Dealer's turn --\n")
             -- Dealer turn here. Ask them where they are.
             switchTurn()
         end
