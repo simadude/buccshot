@@ -296,6 +296,9 @@ local function askPlayerItemUse(inv, isAdrenaline)
                 local resb, res1, res2 = useItem(inv, item)
                 printUsePlayerItem(item, resb, res1, res2)
                 while askPlayerItemUse(game.dealerInv, true) do end
+            elseif item ~= "adrenaline" then
+                local resb, res1, res2 = useItem(inv, item)
+                printUsePlayerItem(item, resb, res1, res2)
             end
             return true
         else
@@ -372,10 +375,12 @@ while game.playerHP > 0 and game.dealerHP > 0 do
             switchTurn()
         end
     end
-    -- round ended, let's give some items
-    game.write("Reloading the shotgun")
-    game.printSlow("...")
-    giveItems()
+    -- round ended
+    if game.playerHP > 0 and game.dealerHP > 0 then
+        game.write("Reloading the shotgun")
+        game.printSlow("...")
+        giveItems()
+    end
 end
 
 game.print("\n\n  GAME  OVER")
