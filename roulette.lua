@@ -171,7 +171,7 @@ local function useSaw()
 end
 
 local function useAdrenaline()
-    error("IMPLEMENT THIS ADRENALINE")
+    -- this will serve as noop
 end
 
 local function useInverter()
@@ -274,6 +274,71 @@ local function printUsePlayerItem(item, resb, res1, res2)
     end
 end
 
+
+-- returns false if to break out of the loop
+---@param inv game.item[]
+---@param isAdrenaline boolean
+---@return boolean
+local function askPlayerItemUse(inv, isAdrenaline)
+    game.print(("Choose item (%s)"):format(strInv(inv, true)))
+    local inputItem = tonumber(read())
+
+    if not inputItem then
+        game.print("Invalid. Try Again.")
+        return true
+    else
+        inputItem = math.floor(inputItem)
+        if inputItem == 0 then
+            return false
+        elseif inputItem <= #inv then
+            local item = inv[inputItem]
+            if item == "adrenaline" and not isAdrenaline then
+                local resb, res1, res2 = useItem(inv, item)
+                printUsePlayerItem(item, resb, res1, res2)
+                while askPlayerItemUse(game.dealerInv, true) do end
+            end
+            return true
+        else
+            game.print("Invalid. Try Again.")
+            return false
+        end
+    end
+end
+
+local function askPlayerTurn()
+    if #game.playerInv > 0 then
+        game.print("Choose (0 - shoot self, 1 - shoot the Dealer, 2 - choose item)")
+    else
+        game.print("Choose (0 - shoot self, 1 - shoot the Dealer)")
+    end
+    local input = tonumber(read())
+    if not input then
+        game.print("Invalid. Try Again.")
+    else
+        if input == 0 then
+            local res = shootSelf()
+            if res then
+                game.printSlow("You shot yourself.")
+                switchTurn()
+            else
+                game.printSlow("It was blank.")
+            end
+        elseif input == 1 then
+            local res = shootOther()
+            if res then
+                game.printSlow("You shot the Dealer.")
+            else
+                game.printSlow("It was blank.")
+            end
+            switchTurn()
+        elseif input == 2 and #game.playerInv > 0 then
+            while askPlayerItemUse(game.playerInv, false) do end
+        else
+            game.print("Invalid. Try again.")
+        end
+    end
+end
+
 --- CLI ---
 
 while game.playerHP > 0 and game.dealerHP > 0 do
@@ -300,91 +365,7 @@ while game.playerHP > 0 and game.dealerHP > 0 do
         game.print("Dealer inventory: "..strInv(game.dealerInv))
         if game.isPlayerTurn then
             game.print("\n-- Your turn --\n")
-            if #game.playerInv > 0 then
-                game.print("Choose (0 - shoot self, 1 - shoot the Dealer, 2 - choose item)")
-            else
-                game.print("Choose (0 - shoot self, 1 - shoot the Dealer)")
-            end
-            local input = tonumber(read())
-            if not input then
-                game.print("Invalid. Try Again.")
-            else
-                if input == 0 then
-                    local res = shootSelf()
-                    if res then
-                        game.printSlow("You shot yourself.")
-                        switchTurn()
-                    else
-                        game.printSlow("It was blank.")
-                    end
-                elseif input == 1 then
-                    local res = shootOther()
-                    if res then
-                        game.printSlow("You shot the Dealer.")
-                    else
-                        game.printSlow("It was blank.")
-                    end
-                    switchTurn()
-                elseif input == 2 and #game.playerInv > 0 then
-                    while true do
-                        game.print(("Choose item (%s)"):format(strInv(game.playerInv, true)))
-                        local inputItem = tonumber(read())
-
-                        if not inputItem then
-                            game.print("Invalid. Try Again.")
-                        else
-                            inputItem = math.floor(inputItem)
-                            local noErr = true
-                            if inputItem == 0 then
-                                break
-                            elseif inputItem <= #game.playerInv then
-                                local item = game.playerInv[inputItem]
-                                local resb, res1, res2 = useItem(game.playerInv, item)
-                                printUsePlayerItem(item, resb, res1, res2)
-                                if item == "adrenaline" then
-                                    while true do
-                                        game.print(("Choose item (%s)"):format(strInv(game.dealerInv, true)))
-                                        local inputItem = tonumber(read())
-
-                                        if not inputItem then
-                                            game.print("Invalid. Try Again.")
-                                        else
-                                            inputItem = math.floor(inputItem)
-                                            local noErr = true
-                                            if inputItem == 0 then
-                                                break
-                                            elseif inputItem <= #game.dealerInv then
-                                                item = game.dealerInv[inputItem]
-                                                if item == "adrenaline" then
-                                                    game.print("Can't pick adrenaline twice. Try Again.")
-                                                    noErr = false
-                                                else
-                                                    local resb, res1, res2 = useItem(game.dealerInv, item)
-                                                    printUsePlayerItem(item, resb, res1, res2)
-                                                end
-                                            else
-                                                game.print("Invalid. Try Again.")
-                                                noErr = false
-                                            end
-                                            if noErr then
-                                                break
-                                            end
-                                        end
-                                    end
-                                end
-                            else
-                                game.print("Invalid. Try Again.")
-                                noErr = false
-                            end
-                            if noErr then
-                                break
-                            end
-                        end
-                    end
-                else
-                    game.print("Invalid. Try again.")
-                end
-            end
+            while askPlayerTurn() do end
         else
             game.print("\n-- Dealer's turn --\n")
             -- Dealer turn here. Ask them where they are.
