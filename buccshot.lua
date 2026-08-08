@@ -174,9 +174,9 @@ game.initCount = 0
 ---| "inverter"
 
 ---@type game.item[]
-game.playerInv = {"adrenaline"}
+game.playerInv = {}
 ---@type game.item[]
-game.dealerInv = {"saw", "beer"}
+game.dealerInv = {}
 
 game.playerHP = 2
 game.dealerHP = 2
