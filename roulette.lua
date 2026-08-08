@@ -4,8 +4,23 @@ local d = require("cc.audio.dfpwm").make_decoder()
 local f = fs.open("ost.dfpwm", "rb").readAll()
 local arr = d(f)
 
-local s = peripheral.find("speaker")
-
+local s = peripheral.find("speaker") or peripheral.wrap("buccshot_speaker")
+if not s then
+    print("No speaker Found.")
+    if periphemu then
+        print("But found periphemu. Do you want to attach custom speaker \"buccshot_speaker\"? [y/n, default=n]")
+        local agree = read()
+        if agree:lower() == "y" then
+            periphemu.create("buccshot_speaker", "speaker")
+            s = peripheral.wrap("buccshot_speaker")
+        else
+            print("Okay!")
+        end
+    else
+        print("Please attach speaker for audio :3")
+        sleep(1)
+    end
+end
 local buf = {}
 
 local function audioLoop()
@@ -14,8 +29,8 @@ local function audioLoop()
             sleep(0.25)
             s = peripheral.find("speaker")
         else
-            for i = 1, #arr, 8000 do
-                for j = 1, 8000 do
+            for i = 1, #arr, 4000 do
+                for j = 1, 4000 do
                     buf[#buf+1] = arr[i+j-1]
                     buf[#buf+1] = arr[i+j-1]
                     buf[#buf+1] = arr[i+j-1]
@@ -580,7 +595,6 @@ end
 
 --- CLI ---
 local function gameLoop()
-    
     while true do
         if game.round > 3 then
             break
@@ -622,6 +636,7 @@ local function gameLoop()
                 else
                     game.print("\n-- Dealer's turn --\n")
                     dealerTurn()
+                    sleep(0.5)
                 end
                 game.clearScreen()
             end
@@ -643,8 +658,6 @@ local function gameLoop()
     else
         game.print(" PLAYER WON.\n")
     end
-
-    return
 end
 
 parallel.waitForAny(gameLoop, audioLoop)
