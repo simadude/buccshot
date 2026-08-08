@@ -60,6 +60,10 @@ game.canPlayerTurn = true
 game.canDealerTurn = true
 game.gunSawed = false
 
+game.dealerKnownShells = {}
+game.dealerKnowsShell = false
+game.dealerKnownShell = nil
+
 game.round = 1
 
 local function clearShells()
@@ -125,7 +129,7 @@ end
 local function giveItems()
     local itemCount = math.random(1, 5)
     ---@type game.item[]
-    local items = ({"saw", "handcuffs", "cigarettes", "phone", "magnifying glass", "adrenaline"})
+    local items = ({"saw", "handcuffs", "cigarettes", "phone", "magnifying glass", "adrenaline", "beer", "inverter"})
     for i = 1, math.min(itemCount, 8-#game.playerInv) do
         game.playerInv[#game.playerInv+1] = items[math.random(#items)]
     end
@@ -249,6 +253,166 @@ local function switchTurn()
     end
 end
 
+local function dealerFigureOutShell()
+    if game.dealerKnownShells[#shells] then
+        return true
+    end
+    
+    local liveCount = 0
+    local blankCount = 0
+    for i = 1, #shells do
+        if shells[i] then liveCount = liveCount + 1 else blankCount = blankCount + 1 end
+    end
+    
+    if liveCount == 0 or blankCount == 0 then
+        return true
+    end
+    
+    for i = 1, #shells do
+        if game.dealerKnownShells[i] then
+            if shells[i] then liveCount = liveCount - 1 else blankCount = blankCount - 1 end
+        end
+    end
+    
+    if liveCount == 0 or blankCount == 0 then
+        return true
+    end
+    
+    return false
+end
+
+local function dealerHasItem(itemName)
+    for _, item in ipairs(game.dealerInv) do
+        if item == itemName then return true end
+    end
+    return false
+end
+
+local function dealerTurn()
+    game.printSlow("Dealer is thinking...")
+    
+    if #shells == 0 then
+        switchTurn()
+        return
+    end
+    
+    game.dealerTarget = nil
+    
+    if #shells == 1 then
+        game.dealerKnowsShell = true
+        game.dealerKnownShell = shells[#shells] and "live" or "blank"
+    elseif not game.dealerKnowsShell then
+        game.dealerKnowsShell = dealerFigureOutShell()
+        if game.dealerKnowsShell then
+            game.dealerKnownShell = shells[#shells] and "live" or "blank"
+        end
+    end
+    
+    if game.dealerKnowsShell then
+        game.dealerTarget = game.dealerKnownShell == "live" and "player" or "self"
+    end
+    
+    while true do
+        local itemToUse = nil
+        
+        for _, item in ipairs(game.dealerInv) do
+            if item == "magnifying glass" and not game.dealerKnowsShell and #shells ~= 1 then
+                itemToUse = "magnifying glass"
+                break
+            end
+            if item == "cigarettes" and game.dealerHP < 3 then
+                itemToUse = "cigarettes"
+                break
+            end
+            if item == "beer" and game.dealerKnownShell ~= "live" and #shells ~= 1 then
+                itemToUse = "beer"
+                break
+            end
+            if item == "handcuffs" and game.canPlayerTurn and #shells ~= 1 then
+                itemToUse = "handcuffs"
+                break
+            end
+            if item == "saw" and not game.gunSawed and game.dealerKnownShell == "live" then
+                itemToUse = "saw"
+                break
+            end
+            if item == "phone" and #shells > 2 then
+                itemToUse = "phone"
+                break
+            end
+            if item == "inverter" and game.dealerKnowsShell and game.dealerKnownShell == "blank" then
+                itemToUse = "inverter"
+                break
+            end
+        end
+        
+        if not itemToUse then break end
+        
+        local resb, res1 = useItem(game.dealerInv, itemToUse)
+        game.writeSlow("Dealer uses " .. itemToUse .. ".")
+        
+        if itemToUse == "magnifying glass" then
+            game.dealerKnowsShell = true
+            game.dealerKnownShell = shells[#shells] and "live" or "blank"
+            game.dealerTarget = game.dealerKnownShell == "live" and "player" or "self"
+        elseif itemToUse == "beer" then
+            game.dealerKnowsShell = false
+            game.dealerKnownShell = nil
+            game.dealerTarget = nil
+        elseif itemToUse == "phone" then
+            local idx = #shells - res1 + 1
+            game.dealerKnownShells[idx] = true
+        elseif itemToUse == "inverter" then
+            game.dealerKnownShell = "live"
+            game.dealerKnowsShell = true
+            game.dealerTarget = "player"
+        end
+    end
+    
+    if dealerHasItem("saw") and not game.gunSawed and game.dealerKnownShell ~= "blank" then
+        local coin = math.random(0, 1)
+        if coin == 0 then
+            game.dealerTarget = "self"
+        else
+            useItem(game.dealerInv, "saw")
+            game.dealerTarget = "player"
+            game.gunSawed = true
+            game.writeSlow("Dealer uses saw.")
+        end
+    end
+    
+    if not game.dealerTarget then
+        local coin = math.random(0, 1)
+        game.dealerTarget = (coin == 0) and "self" or "player"
+    end
+    
+    local goAgain = false
+    if game.dealerTarget == "self" then
+        local res = shootSelf()
+        if res then
+            game.printSlow("Dealer shot himself.")
+        else
+            game.printSlow("Dealer shot himself. It was blank.")
+            goAgain = true
+        end
+    else
+        local res = shootOther()
+        if res then
+            game.printSlow("Dealer shot you!")
+        else
+            game.printSlow("Dealer shot you. It was blank.")
+        end
+    end
+    
+    game.dealerKnowsShell = false
+    game.dealerKnownShell = nil
+    game.dealerTarget = nil
+    
+    if not goAgain then
+        switchTurn()
+    end
+end
+
 local function printUsePlayerItem(item, resb, res1, res2)
     if not resb then
         game.print(resb)
@@ -356,6 +520,9 @@ while true do
         game.printSlow("...")
 
         clearShells()
+        game.dealerKnownShells = {}
+        game.dealerKnowsShell = false
+        game.dealerKnownShell = nil
         local c, sh = spawnShells()
         shuffleShells()
 
@@ -381,8 +548,7 @@ while true do
                 while askPlayerTurn() do end
             else
                 game.print("\n-- Dealer's turn --\n")
-                -- Dealer turn here. Ask them where they are.
-                switchTurn()
+                dealerTurn()
             end
         end
     end
