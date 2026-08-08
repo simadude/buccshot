@@ -26,6 +26,28 @@ function game.writeSlow(str)
     print()
 end
 
+---@param choices string[]
+---@return integer
+function game.giveChoices(choices)
+    local ox, oy = term.getCursorPos()
+    local choice = 1
+    while true do
+        for i = 1, #choices do
+            term.setCursorPos(ox, oy+i-1)
+            term.setTextColor(i == choice and colors.yellow or colors.white)
+            write((i == choice and "> " or "  ")..choices[i])
+        end
+        local t = {os.pullEvent("key")}
+        if t[2] == keys.up then
+            choice = math.max(1, choice-1)
+        elseif t[2] == keys.down then
+            choice = math.min(#choices, choice+1)
+        elseif t[2] == keys.enter or t[2] == keys.space then
+            return choice
+        end
+    end
+end
+
 -- true - alive
 --
 -- false - dead/empty
@@ -378,9 +400,12 @@ local function dealerTurn()
             game.dealerKnowsShell = false
             game.dealerKnownShell = nil
             game.dealerTarget = nil
+            game.writeSlow("The shell was "..(res1 and "live" or "blank"))
         elseif itemToUse == "phone" then
             local idx = #shells - res1 + 1
             game.dealerKnownShells[idx] = true
+            game.write("Dealer: ")
+            game.printSlow("Interesting...")
         elseif itemToUse == "inverter" then
             game.dealerKnownShell = "live"
             game.dealerKnowsShell = true
@@ -438,7 +463,7 @@ local function printUsePlayerItem(item, resb, res1, res2)
     else
         if item == "beer" then
             game.writeSlow("You drank beer and ejected the shell. ")
-            game.printSlow(("It was %s"):format(res1))
+            game.printSlow(("It was %s"):format(res1 and "live" or "blank"))
         elseif item == "saw" then
             game.write("You sawed the gun.")
             game.print("Next live shot will have double damage.")
@@ -529,6 +554,9 @@ end
 
 --- CLI ---
 while true do
+    if game.round > 3 then
+        break
+    end
     game.clearScreen()
     if game.round > 1 then
         giveItems()
@@ -571,9 +599,9 @@ while true do
         end
         game.loadout = game.loadout + 1
     end
-    if game.playerHP <= 0 or game.round > 3 then
+    if game.playerHP <= 0 then
         break
-    else
+    elseif game.round <= 3 then
         -- so playerhp > 0 and game.round <= 3, but dealerhp == 0
         game.round = game.round + 1
         game.playerHP = game.maxHP[game.round]
