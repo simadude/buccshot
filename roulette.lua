@@ -37,12 +37,14 @@ function game.giveChoices(choices)
             term.setTextColor(i == choice and colors.yellow or colors.white)
             write((i == choice and "> " or "  ")..choices[i])
         end
+        term.setTextColor(colors.white)
         local t = {os.pullEvent("key")}
         if t[2] == keys.up then
             choice = math.max(1, choice-1)
         elseif t[2] == keys.down then
             choice = math.min(#choices, choice+1)
         elseif t[2] == keys.enter or t[2] == keys.space then
+            print()
             return choice
         end
     end
@@ -69,9 +71,9 @@ game.initCount = 0
 ---| "inverter"
 
 ---@type game.item[]
-game.playerInv = {}
+game.playerInv = {"adrenaline"}
 ---@type game.item[]
-game.dealerInv = {}
+game.dealerInv = {"saw", "beer"}
 
 game.playerHP = 2
 game.dealerHP = 2
@@ -465,7 +467,7 @@ local function printUsePlayerItem(item, resb, res1, res2)
             game.writeSlow("You drank beer and ejected the shell. ")
             game.printSlow(("It was %s"):format(res1 and "live" or "blank"))
         elseif item == "saw" then
-            game.write("You sawed the gun.")
+            game.write("You sawed the gun. ")
             game.print("Next live shot will have double damage.")
         elseif item == "handcuffs" then
             game.printSlow("You handcuffed the Dealer. His next turn will be skipped.")
@@ -490,65 +492,55 @@ end
 ---@param isAdrenaline boolean
 ---@return boolean
 local function askPlayerItemUse(inv, isAdrenaline)
-    game.print(("Choose item (%s)"):format(strInv(inv, true)))
-    local inputItem = tonumber(read())
-
-    if not inputItem then
-        game.print("Invalid. Try Again.")
-        return true
-    else
-        inputItem = math.floor(inputItem)
-        if inputItem == 0 then
-            return false
-        elseif inputItem <= #inv then
-            local item = inv[inputItem]
-            if item == "adrenaline" and not isAdrenaline then
-                local resb, res1, res2 = useItem(inv, item)
-                printUsePlayerItem(item, resb, res1, res2)
-                while askPlayerItemUse(game.dealerInv, true) do end
-            elseif item ~= "adrenaline" then
-                local resb, res1, res2 = useItem(inv, item)
-                printUsePlayerItem(item, resb, res1, res2)
-            end
-            return true
-        else
-            game.print("Invalid. Try Again.")
-            return false
-        end
+    local choices = {"Go Back"}
+    for _, item in ipairs(inv) do
+        choices[#choices + 1] = item
     end
+    local input = game.giveChoices(choices)
+    if input == 1 then
+        return false
+    end
+
+    local item = inv[input - 1]
+    if item == "adrenaline" and not isAdrenaline then
+        local resb, res1, res2 = useItem(inv, item)
+        printUsePlayerItem(item, resb, res1, res2)
+        while askPlayerItemUse(game.dealerInv, true) do end
+    elseif isAdrenaline then
+        local resb, res1, res2 = useItem(inv, item)
+        printUsePlayerItem(item, resb, res1, res2)
+        return false
+    else
+        local resb, res1, res2 = useItem(inv, item)
+        printUsePlayerItem(item, resb, res1, res2)
+    end
+    return true
 end
 
 local function askPlayerTurn()
+    local choices = {"Shoot Self", "Shoot the Dealer"}
     if #game.playerInv > 0 then
-        game.print("Choose (0 - shoot self, 1 - shoot the Dealer, 2 - choose item)")
-    else
-        game.print("Choose (0 - shoot self, 1 - shoot the Dealer)")
+        choices[#choices + 1] = "Choose Item"
     end
-    local input = tonumber(read())
-    if not input then
-        game.print("Invalid. Try Again.")
-    else
-        if input == 0 then
-            local res = shootSelf()
-            if res then
-                game.printSlow("You shot yourself.")
-                switchTurn()
-            else
-                game.printSlow("It was blank.")
-            end
-        elseif input == 1 then
-            local res = shootOther()
-            if res then
-                game.printSlow("You shot the Dealer.")
-            else
-                game.printSlow("It was blank.")
-            end
+    local input = game.giveChoices(choices)
+    if input == 1 then
+        local res = shootSelf()
+        if res then
+            game.printSlow("You shot yourself.")
             switchTurn()
-        elseif input == 2 and #game.playerInv > 0 then
-            while askPlayerItemUse(game.playerInv, false) do end
         else
-            game.print("Invalid. Try again.")
+            game.printSlow("It was blank.")
         end
+    elseif input == 2 then
+        local res = shootOther()
+        if res then
+            game.printSlow("You shot the Dealer.")
+        else
+            game.printSlow("It was blank.")
+        end
+        switchTurn()
+    elseif input == 3 then
+        while askPlayerItemUse(game.playerInv, false) do end
     end
 end
 
