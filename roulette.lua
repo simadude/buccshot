@@ -1,11 +1,23 @@
+--- TITLE!!!
+local set = settings.get("buccshot", false)
+if not set then
+    settings.set("buccshot", true)
+    term.setTextColor(colors.lightBlue)
+    write("BUCCSHOT ROULETTE ")
+    term.setTextColor(colors.white)
+    print("(PineJam 2026, simadude)")
+    print("Original game (Buckshot Roulette) was developed by Mike Klubnika")
+    print("The OST from the game is \"General Release\"")
+    print("(You will not see this message again until you reboot)\n")
+end
+
 --- Audio
 
-local d = require("cc.audio.dfpwm").make_decoder()
 local f = fs.open("ost.dfpwm", "rb").readAll()
-local arr = d(f)
+local arr = require("cc.audio.dfpwm").decode(f)
 
 local s = peripheral.find("speaker") or peripheral.wrap("buccshot_speaker")
-if not s then
+if not s and not set then
     print("No speaker Found.")
     if periphemu then
         print("But found periphemu. Do you want to attach custom speaker \"buccshot_speaker\"? [y/n, default=n]")
@@ -13,13 +25,15 @@ if not s then
         if agree:lower() == "y" then
             periphemu.create("buccshot_speaker", "speaker")
             s = peripheral.wrap("buccshot_speaker")
-        else
-            print("Okay!")
         end
     else
         print("Please attach speaker for audio :3")
         sleep(1)
     end
+elseif not set then
+    print("Press any keys twice to start.")
+    os.pullEvent("key")
+    os.pullEvent("key")
 end
 local buf = {}
 
@@ -36,9 +50,8 @@ local function audioLoop()
                     buf[#buf+1] = arr[i+j-1]
                     buf[#buf+1] = arr[i+j-1]
                 end
-                while not s.playAudio(buf, 0.5) do
-                    os.pullEvent("speaker_audio_empty")
-                end
+                s.playAudio(buf, 0.5)
+                os.pullEvent("speaker_audio_empty")
                 buf = {}
             end
         end
@@ -51,12 +64,12 @@ local game = {}
 
 function game.print(...)
     print(...)
-    sleep(0.25)
+    sleep(0.20)
 end
 
 function game.write(...)
     write(...)
-    sleep(0.25)
+    sleep(0.20)
 end
 
 function game.printSlow(str)
@@ -541,6 +554,9 @@ end
 ---@param isAdrenaline boolean
 ---@return boolean
 local function askPlayerItemUse(inv, isAdrenaline)
+    if #inv == 0 then
+        return false
+    end
     local choices = {"Go Back"}
     for _, item in ipairs(inv) do
         choices[#choices + 1] = item
